@@ -1,112 +1,128 @@
 INCLUDE "lib_colors.bas"
-INCLUDE "lib_hex.bas"
 INCLUDE "lib_random.bas"
 INCLUDE "lib_joy.bas"
 INCLUDE "lib_scr.bas"
+
+CONST MAZE_WIDTH = 39
+CONST MAZE_HEIGHT = 25
 
 CONST NORTH = 0
 CONST EAST = 1
 CONST WEST = 2
 CONST SOUTH = 3
 
+CONST TILE_PLAYER = 100
+CONST TILE_TROLL = 101
 CONST TILE_WALL = 102
-CONST TILE_PASSAGE = 32
-CONST TILE_TROLL = 42
-CONST TILE_PLAYER = 81
-CONST TILE_GEM = 90
+CONST TILE_PASSAGE = 103
+CONST TILE_GEM = 104
 
 DIM nsew(24) AS BYTE @nsew_data
-DIM SHARED offset AS WORD
-DIM SHARED width AS BYTE
-DIM SHARED height AS BYTE
 
-FUNCTION get_tile AS BYTE(x AS BYTE, y AS BYTE) STATIC
-    RETURN PEEK(offset + 40 * CWORD(y) + x)
-END FUNCTION
+DIM x_stack(255) AS BYTE
+DIM y_stack(255) AS BYTE
+DIM sp AS BYTE: sp = 0
 
-SUB set_tile(x AS BYTE, y AS BYTE, t AS BYTE) STATIC
-    POKE offset + 40 * CWORD(y) + x, t
+SUB push(x AS BYTE, y AS BYTE) STATIC
+    IF sp = 255 THEN ERROR 100
+    x_stack(sp) = x
+    y_stack(sp) = y
+    sp = sp + 1
 END SUB
 
 FUNCTION rnd_loc AS BYTE(size AS BYTE) STATIC
     RETURN 2 * random(0, size / 2 - 1) + 1
 END FUNCTION
 
-SUB wait_for_fire() STATIC
+SUB press_fire_button() STATIC
     DO
     LOOP UNTIL NOT joy1_fire()
     DO
     LOOP UNTIL joy1_fire()
 END SUB
 
-SUB process_tile(x AS BYTE, y AS BYTE)
-    DIM dirs AS BYTE: dirs = nsew(random(0, 23))
-    DIM i AS BYTE: i = 4
-    DO
-        DIM cdir AS BYTE: cdir = dirs AND %11
-        dirs = SHR(dirs, 2)
-        IF cdir = NORTH AND y > 1 AND get_tile(x, y-2) = TILE_WALL THEN
-            CALL set_tile(x, y-1, TILE_PASSAGE)
-            CALL set_tile(x, y-2, TILE_PASSAGE)
-            CALL process_tile(x, y-2)
-        END IF
-        IF cdir = SOUTH AND y < HEIGHT-2 AND get_tile(x, y+2) = TILE_WALL THEN
-            CALL set_tile(x, y+1, TILE_PASSAGE)
-            CALL set_tile(x, y+2, TILE_PASSAGE)
-            CALL process_tile(x, y+2)
-        END IF
-        IF cdir = EAST AND x < WIDTH-2 AND get_tile(x+2, y) = TILE_WALL THEN
-            CALL set_tile(x+1, y, TILE_PASSAGE)
-            CALL set_tile(x+2, y, TILE_PASSAGE)
-            CALL process_tile(x+2, y)
-        END IF
-        IF cdir = WEST AND x > 1 AND get_tile(x-2, y) = TILE_WALL THEN
-            CALL set_tile(x-1, y, TILE_PASSAGE)
-            CALL set_tile(x-2, y, TILE_PASSAGE)
-            CALL process_tile(x-2, y)
-        END IF
-        i = i - 1
-    LOOP UNTIL i = 0
+SUB maze_create() STATIC
+    MEMSET 1024, 1000, TILE_WALL
+    MEMSET $D800, 1000, COLOR_LIGHTGRAY
+    CALL push(rnd_loc(MAZE_WIDTH), rnd_loc(MAZE_HEIGHT))
+
+    DO UNTIL sp = 0
+        DIM x AS BYTE: x = x_stack(sp-1)
+        DIM y AS BYTE: y = y_stack(sp-1)
+
+        DIM dirs AS BYTE: dirs = nsew(random(0, 23))
+        FOR i AS BYTE = 0 TO 3
+            DIM cdir AS BYTE: cdir = dirs AND %11
+            dirs = SHR(dirs, 2)
+            IF cdir = NORTH AND y > 1 AND scr_charat(x, y-2) = TILE_WALL THEN
+                CHARAT x, y-1, TILE_PASSAGE
+                CHARAT x, y-2, TILE_PASSAGE
+                CALL push(x, y-2)
+                EXIT FOR
+            END IF
+            IF cdir = SOUTH AND y < MAZE_HEIGHT-2 AND scr_charat(x, y+2) = TILE_WALL THEN
+                CHARAT x, y+1, TILE_PASSAGE
+                CHARAT x, y+2, TILE_PASSAGE
+                CALL push(x, y+2)
+                EXIT FOR
+            END IF
+            IF cdir = EAST AND x < MAZE_WIDTH-2 AND scr_charat(x+2, y) = TILE_WALL THEN
+                CHARAT x+1, y, TILE_PASSAGE
+                CHARAT x+2, y, TILE_PASSAGE
+                CALL push(x+2, y)
+                EXIT FOR
+            END IF
+            IF cdir = WEST AND x > 1 AND scr_charat(x-2, y) = TILE_WALL THEN
+                CHARAT x-1, y, TILE_PASSAGE
+                CHARAT x-2, y, TILE_PASSAGE
+                CALL push(x-2, y)
+                EXIT FOR
+            END IF
+        NEXT i
+        IF i = 4 THEN sp = sp - 1
+    LOOP
 END SUB
 
 TYPE TypeTroll
     x AS BYTE
     y AS BYTE
+    xnext AS BYTE
+    ynext AS BYTE
     last AS BYTE
     floor AS BYTE
 
     SUB clear() STATIC
-        CALL set_tile(THIS.x, THIS.y, THIS.floor)
+        CHARAT THIS.x, THIS.y, THIS.floor
     END SUB
 
     SUB move() STATIC
         DIM dirs AS BYTE: dirs = nsew(random(0, 23))
-        DIM x AS BYTE
-        DIM y AS BYTE
+        DIM x AS BYTE: x = THIS.x
+        DIM y AS BYTE: y = THIS.y
         DIM d AS BYTE
 
         FOR i AS BYTE = 0 TO 3
             DIM cdir AS BYTE: cdir = dirs AND %11
             dirs = SHR(dirs, 2)
-            IF cdir = NORTH AND get_tile(THIS.x, THIS.y - 1) <> TILE_WALL THEN
+            IF cdir = NORTH AND scr_charat(THIS.x, THIS.y - 1) <> TILE_WALL THEN
                 x = THIS.x
                 y = THIS.y - 1
                 d = cdir
                 IF THIS.last <> SOUTH THEN EXIT FOR
             END IF
-            IF cdir = SOUTH AND get_tile(THIS.x, THIS.y + 1) <> TILE_WALL THEN
+            IF cdir = SOUTH AND scr_charat(THIS.x, THIS.y + 1) <> TILE_WALL THEN
                 x = THIS.x
                 y = THIS.y + 1
                 d = cdir
                 IF THIS.last <> NORTH THEN EXIT FOR
             END IF
-            IF cdir = WEST AND get_tile(THIS.x - 1, THIS.y) <> TILE_WALL THEN
+            IF cdir = WEST AND scr_charat(THIS.x - 1, THIS.y) <> TILE_WALL THEN
                 x = THIS.x - 1
                 y = THIS.y
                 d = cdir
                 IF THIS.last <> EAST THEN EXIT FOR
             END IF
-            IF cdir = EAST AND get_tile(THIS.x + 1, THIS.y) <> TILE_WALL THEN
+            IF cdir = EAST AND scr_charat(THIS.x + 1, THIS.y) <> TILE_WALL THEN
                 x = THIS.x + 1
                 y = THIS.y
                 d = cdir
@@ -114,9 +130,8 @@ TYPE TypeTroll
             END IF
         NEXT i
 
-        THIS.floor = get_tile(x, y)
-        THIS.x = x
-        THIS.y = y
+        THIS.xnext = x
+        THIS.ynext = y
         THIS.last = d
     END SUB
 END TYPE
@@ -128,58 +143,50 @@ TYPE TypePlayer
 END TYPE
 DIM player AS TypePlayer
 
+CALL scr_charrom(CHARSET_LOWERCASE, 14336)
+CALL scr_charmem(14336)
+CALL scr_set_glyph(TILE_PLAYER, @glyph_dwarf)
+CALL scr_set_glyph(TILE_TROLL, @glyph_troll)
+CALL scr_set_glyph(TILE_WALL, @glyph_wall)
+CALL scr_set_glyph(TILE_PASSAGE, @glyph_passage)
+CALL scr_set_glyph(TILE_GEM, @glyph_gem)
+
 MENU:
 CALL scr_color(COLOR_BLACK, COLOR_BLACK)
 CALL scr_clear()
-CALL scr_cursor(0, 4)
-CALL scr_centre("dwarf miner")
-CALL scr_cursor(0, 7)
-CALL scr_centre("collect 15 diamonds")
+LOCATE 0, 4
+CALL scr_centre("Dwarf Miner")
+LOCATE 0, 7
+CALL scr_centre("Collect 15 diamonds")
 CALL scr_centre("before time ends")
-CALL scr_cursor(0, 10)
-CALL scr_centre("avoid trolls")
-CALL scr_cursor(0, 13)
-CALL scr_centre("joystick 1 to move")
-CALL scr_cursor(0, 15)
-CALL scr_centre("fire button and direction")
+LOCATE 0, 10
+CALL scr_centre("Avoid trolls")
+LOCATE 0, 13
+CALL scr_centre("Joystick 1 to move")
+LOCATE 0, 15
+CALL scr_centre("Fire button and direction")
 CALL scr_centre("to build walls or dig tunnels")
-CALL scr_cursor(0, 18)
-CALL scr_centre("building and digging takes time")
-CALL scr_cursor(0, 21)
-CALL scr_centre("press fire to start")
+LOCATE 0, 18
+CALL scr_centre("Building and digging takes time")
+LOCATE 0, 21
+CALL scr_centre("Press fire to start")
 
-CALL wait_for_fire()
+CALL press_fire_button()
 
-START_GAME:
+REM start game
+
 RANDOMIZE TI()
-
-REM clear dungeon
-MEMSET 1024, 1000, TILE_WALL
-
-REM draw right dungeon
-offset = 1044
-width = 19
-height = 25
-CALL process_tile(rnd_loc(width), rnd_loc(height))
-
-REM draw left dungeon
-offset = 1024
-width = 21
-CALL process_tile(rnd_loc(width), rnd_loc(height))
-
-REM open passage
-CALL set_tile(20, rnd_loc(height), TILE_PASSAGE)
+CALL maze_create()
 
 REM place diamonds
 DIM x AS BYTE
 DIM y AS BYTE
 DIM gems_left AS BYTE: gems_left = 0
-width = 39
 DO
-    x = rnd_loc(width)
-    y = rnd_loc(height)
-    IF get_tile(x, y) <> TILE_GEM THEN
-        CALL set_tile(x, y, TILE_GEM)
+    x = rnd_loc(MAZE_WIDTH)
+    y = rnd_loc(MAZE_HEIGHT)
+    IF scr_charat(x, y) <> TILE_GEM THEN
+        CHARAT x, y, TILE_GEM
         gems_left = gems_left + 1
     END IF
 LOOP UNTIL gems_left = 15
@@ -187,12 +194,14 @@ LOOP UNTIL gems_left = 15
 REM create trolls
 FOR t AS BYTE = 0 TO 9
     DO
-        troll(t).x = rnd_loc(width)
-        troll(t).y = rnd_loc(height)
+        troll(t).x = rnd_loc(MAZE_WIDTH)
+        troll(t).y = rnd_loc(MAZE_HEIGHT)
     LOOP WHILE troll(t).x < 8 AND troll(t).y > 18
-    troll(t).floor = get_tile(troll(t).x, troll(t).y)
+    troll(t).xnext = troll(t).x
+    troll(t).ynext = troll(t).y
+    troll(t).floor = scr_charat(troll(t).x, troll(t).y)
     troll(t).last = 4
-    CALL set_tile(troll(t).x, troll(t).y, TILE_TROLL)
+    CHARAT troll(t).x, troll(t).y, TILE_TROLL
 NEXT t
 
 REM place player
@@ -234,22 +243,22 @@ GAME_LOOP:
 
 MOVE_PLAYER:
     DIM tile AS BYTE
-    tile = get_tile(x, y)
+    tile = scr_charat(x, y)
 
     IF joy1_fire() THEN
-        IF tile = TILE_WALL AND x > 0 AND y > 0 AND x < width-1 AND y < height-1 THEN
-            IF RNDB() < 40 THEN CALL set_tile(x, y, TILE_PASSAGE)
+        IF tile = TILE_WALL AND x > 0 AND y > 0 AND x < MAZE_WIDTH-1 AND y < MAZE_HEIGHT-1 THEN
+            IF RNDB() < 40 THEN CHARAT x, y, TILE_PASSAGE
         END IF
         IF tile = TILE_PASSAGE THEN
-            IF RNDB() < 40 THEN CALL set_tile(x, y, TILE_WALL)
+            IF RNDB() < 40 THEN CHARAT x, y, TILE_WALL
         END IF
     ELSE
         IF tile = TILE_WALL THEN GOTO MOVE_TROLLS
 
-        CALL set_tile(player.x, player.y, TILE_PASSAGE)
+        CHARAT player.x, player.y, TILE_PASSAGE
+        CHARAT x, y, TILE_PLAYER
         player.x = x
         player.y = y
-        CALL set_tile(x, y, TILE_PLAYER)
 
         IF tile = TILE_TROLL THEN GOTO GAME_OVER
         IF tile = TILE_GEM THEN 
@@ -265,27 +274,35 @@ MOVE_PLAYER:
 
 MOVE_TROLLS:
     FOR t AS BYTE = 0 TO 9
-        CALL set_tile(troll(9-t).x, troll(9-t).y, troll(9-t).floor)
-    NEXT t
-
-    FOR t AS BYTE = 0 TO 9
         CALL troll(t).move()
-        CALL set_tile(troll(t).x, troll(t).y, TILE_TROLL)
+    NEXT t
+    FOR t AS BYTE = 0 TO 9
+        CHARAT troll(t).x, troll(t).y, troll(t).floor
+    NEXT t
+    FOR t AS BYTE = 0 TO 9
+        troll(t).floor = scr_charat(troll(t).xnext, troll(t).ynext)
+    NEXT t
+    FOR t AS BYTE = 0 TO 9
+        CHARAT troll(t).xnext, troll(t).ynext, TILE_TROLL
+    NEXT t
+    FOR t AS BYTE = 0 TO 9
+        troll(t).x = troll(t).xnext
+        troll(t).y = troll(t).ynext
         IF troll(t).floor = TILE_PLAYER THEN GOTO GAME_OVER
     NEXT t
 
     GOTO GAME_LOOP
 
 GAME_OVER:
-    MEMSET 1024, 1000, TILE_PASSAGE
-    TEXTAT 15,10, "game over"
-    CALL wait_for_fire()
+    CALL scr_clear()
+    TEXTAT 15,10, "Game over"
+    CALL press_fire_button()
     GOTO MENU
 
 YOU_WIN:
-    MEMSET 1024, 1000, TILE_PASSAGE
-    TEXTAT 17,10, "you win"
-    CALL wait_for_fire()
+    CALL scr_clear()
+    TEXTAT 17,10, "You win"
+    CALL press_fire_button()
     GOTO MENU
 
 nsew_data:
@@ -295,3 +312,53 @@ DATA AS BYTE %10011100, %10010011, %10001101, %10000111
 DATA AS BYTE %01111000, %01110010, %01101100, %01100011
 DATA AS BYTE %01001110, %01001011, %00111001, %00110110
 DATA AS BYTE %00101101, %00100111, %00011110, %00011011
+
+glyph_dwarf:
+DATA AS BYTE %11100000
+DATA AS BYTE %11101010
+DATA AS BYTE %01001110
+DATA AS BYTE %01011111
+DATA AS BYTE %01111111
+DATA AS BYTE %01001111
+DATA AS BYTE %00001010
+DATA AS BYTE %00001010
+
+glyph_troll:
+DATA AS BYTE %00111100
+DATA AS BYTE %01011010
+DATA AS BYTE %00111100
+DATA AS BYTE %01111110
+DATA AS BYTE %10111101
+DATA AS BYTE %10100101
+DATA AS BYTE %00100100
+DATA AS BYTE %01100110
+
+glyph_passage:
+DATA AS BYTE %00000000
+DATA AS BYTE %00000000
+DATA AS BYTE %00000000
+DATA AS BYTE %00000000
+DATA AS BYTE %00000000
+DATA AS BYTE %00000000
+DATA AS BYTE %00000000
+DATA AS BYTE %00000000
+
+glyph_wall:
+DATA AS BYTE %00000000
+DATA AS BYTE %10111101
+DATA AS BYTE %00000000
+DATA AS BYTE %11111101
+DATA AS BYTE %00000000
+DATA AS BYTE %11011111
+DATA AS BYTE %11011111
+DATA AS BYTE %00000000
+
+glyph_gem:
+DATA AS BYTE %00000000
+DATA AS BYTE %00010000
+DATA AS BYTE %00111000
+DATA AS BYTE %01111100
+DATA AS BYTE %00111000
+DATA AS BYTE %00010000
+DATA AS BYTE %00000000
+DATA AS BYTE %00000000
