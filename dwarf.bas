@@ -1,7 +1,9 @@
+
 INCLUDE "lib_colors.bas"
 INCLUDE "lib_random.bas"
 INCLUDE "lib_joy.bas"
 INCLUDE "lib_scr.bas"
+INCLUDE "lib_sid.bas"
 
 CONST MAZE_WIDTH = 39
 CONST MAZE_HEIGHT = 25
@@ -150,6 +152,9 @@ CALL scr_set_glyph(TILE_TROLL, @glyph_troll)
 CALL scr_set_glyph(TILE_WALL, @glyph_wall)
 CALL scr_set_glyph(TILE_PASSAGE, @glyph_passage)
 CALL scr_set_glyph(TILE_GEM, @glyph_gem)
+
+CALL sid_init(@SID_START, @SID_END)
+CALL sid_play()
 
 MENU:
 CALL scr_color(COLOR_BLACK, COLOR_BLACK)
@@ -362,3 +367,8 @@ DATA AS BYTE %00111000
 DATA AS BYTE %00010000
 DATA AS BYTE %00000000
 DATA AS BYTE %00000000
+
+SID_START:
+INCBIN "Castle_of_Life.sid"
+SID_END:
+END

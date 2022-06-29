@@ -16,14 +16,14 @@
                 ]
             },
             "linux": {
-                "command": "./xcb",
+                "command": "./bin/Linux/xcbasic3",
                 "args": [
                     "${file}",
                     "${fileDirname}/${fileBasenameNoExtension}.prg"
                 ]
             },
             "windows": {
-                "command": "xcb.bat",
+                "command": "./bin/Windows/xcbasic3.exe",
                 "args": [
                     "${file}",
                     "${fileDirname}\\${fileBasenameNoExtension}.prg"

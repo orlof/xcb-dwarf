@@ -38,6 +38,10 @@ FUNCTION scr_charat AS BYTE(x AS BYTE, y AS BYTE) SHARED STATIC
 END FUNCTION
 
 SUB scr_charrom(set AS WORD, addr AS WORD) SHARED STATIC
+    ' Copies characters (2048 bytes) from ROM to RAM
+    '  - set: CHARSET_GRAPHICS or CHARSET_LOWERCASE
+    '  - addr: destination address, should be divisible by 2048
+    ' CALL scr_charrom(CHARSET_LOWERCASE, 7 * 2048)
     ASM
         sei         ; disable interrupts while we copy
         lda #$33    ; make the CPU see the Character Generator ROM...
@@ -63,17 +67,19 @@ FUNCTION scr_screencode AS BYTE(petscii AS BYTE) SHARED STATIC OVERLOAD
 END FUNCTION
 
 FUNCTION scr_screencode AS BYTE(petscii AS STRING * 1) SHARED STATIC OVERLOAD
+    ' Convert PETSCII string character to screen code
+    ' POKE 1024, scr_screencode("A")
     RETURN scr_screencode(ASC(petscii))
 END FUNCTION
 
 SUB scr_charmem(addr AS WORD) SHARED STATIC
-    REM pointer to character memory, relative to VIC bank
-    REM $0000-$07ff, 0          $0800-$0FFF, 2048
-    REM $1000-$17FF, 4096       $1800-$1FFF, 6144
-    REM $2000-$27FF, 8192       $2800-$2FFF, 10240
-    REM $3000-$37FF, 12288      $3800-$3FFF, 14336
-    REM Values 4096 and 6144 in VIC bank #0 and #2 select Character ROM instead
-
+    ' Set pointer to character memory, relative to VIC bank
+    '   $0000-$07ff, 0          $0800-$0FFF, 2048
+    '   $1000-$17FF, 4096       $1800-$1FFF, 6144
+    '   $2000-$27FF, 8192       $2800-$2FFF, 10240
+    '   $3000-$37FF, 12288      $3800-$3FFF, 14336
+    '   Values 4096 and 6144 in VIC bank #0 and #2 select Character ROM instead
+    ' CALL scr_charmem(14336)
     DIM slot AS BYTE: slot = CBYTE(SHR(addr, 10)) AND %1110
     IF SHL(CWORD(slot), 10) <> addr THEN ERROR 100
 
@@ -88,6 +94,18 @@ SUB scr_set_glyph(screencode AS BYTE, from AS WORD) SHARED STATIC OVERLOAD
 END SUB
 
 SUB scr_set_glyph(petscii AS STRING * 1, from AS WORD) SHARED STATIC OVERLOAD
+    ' Replace character glyph with data starting at "from"
+    '   CALL scr_set_glyph("A", @my_a_letter)
+    '   END
+    '   my_a_letter:
+    '   DATA AS BYTE %00011000
+    '   DATA AS BYTE %00100100
+    '   DATA AS BYTE %01000010
+    '   DATA AS BYTE %01000010
+    '   DATA AS BYTE %01111110
+    '   DATA AS BYTE %01000010
+    '   DATA AS BYTE %01000010
+    '   DATA AS BYTE %00011000
     CALL scr_set_glyph(scr_screencode(petscii), from)
 END SUB
 
