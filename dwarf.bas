@@ -153,8 +153,9 @@ CALL scr_set_glyph(TILE_WALL, @glyph_wall)
 CALL scr_set_glyph(TILE_PASSAGE, @glyph_passage)
 CALL scr_set_glyph(TILE_GEM, @glyph_gem)
 
-CALL sid_init(@SID_START, @SID_END)
-CALL sid_play()
+DIM sid_info AS SidInfo
+sid_info = sid_load(@SID_START, @SID_END)
+CALL sid_play(sid_info.init, sid_info.play)
 
 MENU:
 CALL scr_color(COLOR_BLACK, COLOR_BLACK)

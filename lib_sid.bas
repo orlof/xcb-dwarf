@@ -1,41 +1,45 @@
 INCLUDE "lib_hex.bas"
 
-DECLARE SUB sid_init(s AS WORD, e AS WORD) SHARED STATIC
-DECLARE SUB sid_play() SHARED STATIC OVERLOAD
+TYPE SidInfo
+    init AS WORD
+    play AS WORD
+    base AS WORD
+    length AS WORD
 
-DIM SHARED init AS WORD
-DIM SHARED play AS WORD
+    SUB debug() STATIC
+        PRINT "init", hex(THIS.init)
+        PRINT "play", hex(THIS.play)
+        PRINT "base", hex(THIS.base)
+        PRINT "length", THIS.length
+    END SUB
+END TYPE
+
+DECLARE FUNCTION sid_load AS SidInfo(sid_start AS WORD, sid_end AS WORD) SHARED STATIC
+DECLARE SUB sid_play(init AS WORD, play AS WORD) SHARED STATIC
 
 DIM SHARED sid_debug AS BYTE
 sid_debug = 0
 
-SUB sid_init(s AS WORD, e AS WORD) SHARED STATIC
-    POKE @init, PEEK(s + $0b)
-    POKE @init+1, PEEK(s + $0a)
+FUNCTION sid_load AS SidInfo(sid_start AS WORD, sid_end AS WORD) SHARED STATIC
+    POKE @sid_load.init, PEEK(sid_start + $0b)
+    POKE @sid_load.init+1, PEEK(sid_start + $0a)
 
-    POKE @play, PEEK(s + $0d)
-    POKE @play+1, PEEK(s + $0c)
+    POKE @sid_load.play, PEEK(sid_start + $0d)
+    POKE @sid_load.play+1, PEEK(sid_start + $0c)
 
-    DIM load_addr AS WORD
-    POKE @load_addr, PEEK(s + $7c)
-    POKE @load_addr+1, PEEK(s + $7d)
+    POKE @sid_load.base, PEEK(sid_start + $7c)
+    POKE @sid_load.base+1, PEEK(sid_start + $7d)
 
-    DIM length AS WORD
-    length = e - (s + $7e)
+    sid_load.length = sid_end - (sid_start + $7e)
 
     IF sid_debug THEN 
-        PRINT "init", hex(init)
-        PRINT "play", hex(play)
-        PRINT "load", hex(load_addr)
-        PRINT "length", length
+        CALL sid_load.debug()
     END IF
 
-    MEMCPY s + $7e, load_addr, length
-END SUB
+    MEMCPY sid_start + $7e, sid_load.base, sid_load.length
+END FUNCTION
 
-SUB sid_play() SHARED STATIC
-    ' print hex(init), hex(play)
-
+SUB sid_play(init AS WORD, play AS WORD) SHARED STATIC
     ASM
         lda {init}
         sta jsr_init + 1
@@ -76,7 +80,7 @@ jsr_init:
 irq:
         dec $d019       ; ACK any raster IRQs
 jsr_play:
-        jsr $6450       ; Play the music
+        jsr $dead       ; Play the music
 
         jmp $ea31
     END ASM
