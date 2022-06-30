@@ -1,18 +1,18 @@
 # xcb-dwarf
-Game concept
 
-## Dwarf Miner
 
-Collect 15 diamonds
-Before time runs out
+```
+        Dwarf Miner
 
-Avoid trolls
+     Collect 15 diamonds
+     Before time runs out
 
-Joystick 1 to move
+        Avoid trolls
 
-Fire button and direction
-to build walls or dig tunnels
+      Joystick 1 to move
+
+   Fire button and direction
+ to build walls or dig tunnels
 
 Building and digging takes time
-
-Press fire to start
+```

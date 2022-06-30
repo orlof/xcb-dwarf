@@ -38,10 +38,6 @@ FUNCTION scr_charat AS BYTE(x AS BYTE, y AS BYTE) SHARED STATIC
 END FUNCTION
 
 SUB scr_charrom(set AS WORD, addr AS WORD) SHARED STATIC
-    ' Copies characters (2048 bytes) from ROM to RAM
-    '  - set: CHARSET_GRAPHICS or CHARSET_LOWERCASE
-    '  - addr: destination address, should be divisible by 2048
-    ' CALL scr_charrom(CHARSET_LOWERCASE, 7 * 2048)
     ASM
         sei         ; disable interrupts while we copy
         lda #$33    ; make the CPU see the Character Generator ROM...
@@ -67,17 +63,16 @@ FUNCTION scr_screencode AS BYTE(petscii AS BYTE) SHARED STATIC OVERLOAD
 END FUNCTION
 
 FUNCTION scr_screencode AS BYTE(petscii AS STRING * 1) SHARED STATIC OVERLOAD
-    ' Convert PETSCII string character to screen code
-    ' POKE 1024, scr_screencode("A")
     RETURN scr_screencode(ASC(petscii))
 END FUNCTION
 
 SUB scr_charmem(addr AS WORD) SHARED STATIC
-    ' Set pointer to character memory, relative to VIC bank
-    '   $0000-$07ff, 0          $0800-$0FFF, 2048
-    '   $1000-$17FF, 4096       $1800-$1FFF, 6144
-    '   $2000-$27FF, 8192       $2800-$2FFF, 10240
-    '   $3000-$37FF, 12288      $3800-$3FFF, 14336
+    ' Activate charmem from "addr" relative to VIC bank
+    ' Allowed values:
+    '   $0000 / 0          $0800 / 2048
+    '   $1000 / 4096       $1800 / 6144
+    '   $2000 / 8192       $2800 / 10240
+    '   $3000 / 12288      $3800 / 14336
     '   Values 4096 and 6144 in VIC bank #0 and #2 select Character ROM instead
     ' CALL scr_charmem(14336)
     DIM slot AS BYTE: slot = CBYTE(SHR(addr, 10)) AND %1110
@@ -87,6 +82,7 @@ SUB scr_charmem(addr AS WORD) SHARED STATIC
 END SUB
 
 SUB scr_set_glyph(screencode AS BYTE, from AS WORD) SHARED STATIC OVERLOAD
+    ' Redefine character glyph
     DIM addr AS WORD: addr = 16384 * ((PEEK($dd00) AND %11) XOR %11)
     addr = addr + 1024 * (PEEK($d018) AND %1110)
     addr = addr + 8 * CWORD(screencode)
