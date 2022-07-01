@@ -1,3 +1,7 @@
+GOTO START_OF_PROGRAM
+
+ORIGIN 4096
+START_OF_PROGRAM:
 
 INCLUDE "lib_colors.bas"
 INCLUDE "lib_random.bas"
@@ -145,37 +149,30 @@ TYPE TypePlayer
 END TYPE
 DIM player AS TypePlayer
 
-CALL scr_charrom(CHARSET_LOWERCASE, 14336)
-CALL scr_charmem(14336)
+DIM sid_info AS SidInfo
+sid_info = sid_load(@SID_START, @SID_END)
+CALL sid_play(sid_info.init, sid_info.play)
+
+CALL scr_charrom(CHARSET_LOWERCASE, 2048)
+CALL scr_charmem(2048)
 CALL scr_set_glyph(TILE_PLAYER, @glyph_dwarf)
 CALL scr_set_glyph(TILE_TROLL, @glyph_troll)
 CALL scr_set_glyph(TILE_WALL, @glyph_wall)
 CALL scr_set_glyph(TILE_PASSAGE, @glyph_passage)
 CALL scr_set_glyph(TILE_GEM, @glyph_gem)
 
-DIM sid_info AS SidInfo
-sid_info = sid_load(@SID_START, @SID_END)
-CALL sid_play(sid_info.init, sid_info.play)
-
 MENU:
 CALL scr_color(COLOR_BLACK, COLOR_BLACK)
 CALL scr_clear()
-LOCATE 0, 4
-CALL scr_centre("Dwarf Miner")
-LOCATE 0, 7
-CALL scr_centre("Collect 15 diamonds")
+CALL scr_centre(4, "Dwarf Miner")
+CALL scr_centre(7, "Collect 15 diamonds")
 CALL scr_centre("before time ends")
-LOCATE 0, 10
-CALL scr_centre("Avoid trolls")
-LOCATE 0, 13
-CALL scr_centre("Joystick 1 to move")
-LOCATE 0, 15
-CALL scr_centre("Fire button and direction")
+CALL scr_centre(10, "Avoid trolls")
+CALL scr_centre(13, "Joystick 1 to move")
+CALL scr_centre(15, "Fire button and direction")
 CALL scr_centre("to build walls or dig tunnels")
-LOCATE 0, 18
-CALL scr_centre("Building and digging takes time")
-LOCATE 0, 21
-CALL scr_centre("Press fire to start")
+CALL scr_centre(18, "Building and digging takes time")
+CALL scr_centre(21, "Press fire to start")
 
 CALL press_fire_button()
 
