@@ -40,7 +40,7 @@ bit_loop:
 skip_add:
         dex                 ; decrement bit count
         bne bit_loop        ; loop if more to do
-        STA {bin_to_bcd}    ; save result low byte
+        sta {bin_to_bcd}    ; save result low byte
         cld                 ; clear decimal mode
     END ASM
 END FUNCTION
@@ -64,6 +64,7 @@ SUB time_reset(hour AS BYTE, minute AS BYTE, second AS BYTE, frac AS BYTE) SHARE
 END SUB
 
 FUNCTION time_tod AS TOD() SHARED STATIC
+    LOCATE 0,18: PRINT hex(ctime.hour)
     DIM pm AS BYTE: pm = (ctime.hour AND %10000000)
     time_tod.hour = ctime.hour AND %01111111
     time_tod.hour = 10 * SHR(time_tod.hour, 4) + (time_tod.hour AND $0f)
@@ -74,4 +75,3 @@ FUNCTION time_tod AS TOD() SHARED STATIC
     time_tod.second = 10 * SHR(ctime.second, 4) + (ctime.second AND $0f)
     time_tod.frac = ctime.frac AND $0f
 END FUNCTION
-

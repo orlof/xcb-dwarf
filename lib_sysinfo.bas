@@ -117,5 +117,3 @@ model_8580:
 
 model_6581:
 END ASM
-
-CALL sysinfo_debug()
