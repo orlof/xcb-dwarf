@@ -78,7 +78,6 @@ DIM build AS TypePlayer
 
 DIM sid_info AS SidInfo
 sid_info = sid_load(@SID_START, @SID_END)
-'CALL sid_play(sid_info.init, sid_info.play)
 
 CALL scr_charrom(CHARSET_GRAPHICS, 2048)
 CALL scr_charmem(2048)
@@ -107,6 +106,7 @@ RANDOMIZE TI()
 CALL maze_create()
 
 REM place diamonds
+DIM t AS BYTE FAST
 DIM x AS BYTE
 DIM y AS BYTE
 DIM tile AS BYTE
@@ -121,16 +121,18 @@ DO
 LOOP UNTIL gems_left = 14
 
 REM create trolls
-FOR t AS BYTE = 0 TO 9
+FOR t = 0 TO 9
     DO
         troll(t).x = rnd_loc(MAZE_WIDTH)
         troll(t).y = rnd_loc(MAZE_HEIGHT)
     LOOP WHILE troll(t).x < 8 AND troll(t).y > 18
     troll(t).xnext = troll(t).x
     troll(t).ynext = troll(t).y
+    troll(t).last = 4
     troll(t).floor = scr_charat(troll(t).x, troll(t).y)
     troll(t).floor_color = scr_color_at(troll(t).x, troll(t).y)
-    troll(t).last = 4
+NEXT t
+FOR t = 0 TO 9
     CHARAT troll(t).x, troll(t).y, TILE_TROLL, COLOR_BROWN
 NEXT t
 
@@ -252,7 +254,7 @@ GAME_LOOP:
                     IF tile = TILE_TROLL THEN GOTO GAME_OVER_TROLL
                     IF tile = TILE_GEM THEN 
                         gems_left = gems_left - 1
-                        IF Rounds < $0100 THEN
+                        IF Rounds < $0180 THEN
                             Rounds = 0
                         ELSE
                             Rounds = Rounds - $0180
@@ -269,20 +271,20 @@ MOVE_TROLLS:
     IF Curtime > TrollTime THEN
         TrollTime = CurTime + 20
 
-        FOR t AS BYTE = 0 TO 9
+        FOR t = 0 TO 9
             CALL troll(t).move()
         NEXT t
-        FOR t AS BYTE = 0 TO 9
+        FOR t = 0 TO 9
             CHARAT troll(t).x, troll(t).y, troll(t).floor, troll(t).floor_color
         NEXT t
-        FOR t AS BYTE = 0 TO 9
+        FOR t = 0 TO 9
             troll(t).floor = scr_charat(troll(t).xnext, troll(t).ynext)
             troll(t).floor_color = scr_color_at(troll(t).xnext, troll(t).ynext)
         NEXT t
-        FOR t AS BYTE = 0 TO 9
+        FOR t = 0 TO 9
             CHARAT troll(t).xnext, troll(t).ynext, TILE_TROLL, COLOR_BROWN
         NEXT t
-        FOR t AS BYTE = 0 TO 9
+        FOR t = 0 TO 9
             troll(t).x = troll(t).xnext
             troll(t).y = troll(t).ynext
             IF troll(t).floor = TILE_PLAYER THEN GOTO GAME_OVER_TROLL
