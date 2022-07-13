@@ -43,6 +43,10 @@ FUNCTION scr_charat AS BYTE(x AS BYTE, y AS BYTE) SHARED STATIC
     RETURN PEEK(1024 + 40 * CWORD(y) + x)
 END FUNCTION
 
+FUNCTION scr_color_at AS BYTE(x AS BYTE, y AS BYTE) SHARED STATIC
+    RETURN PEEK($d800 + 40 * CWORD(y) + x)
+END FUNCTION
+
 SUB scr_charrom(set AS WORD, addr AS WORD) SHARED STATIC
     ASM
         sei         ; disable interrupts while we copy

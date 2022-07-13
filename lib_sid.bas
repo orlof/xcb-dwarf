@@ -15,7 +15,7 @@ TYPE SidInfo
 END TYPE
 
 DECLARE FUNCTION sid_load AS SidInfo(sid_start AS WORD, sid_end AS WORD) SHARED STATIC
-DECLARE SUB sid_play(init AS WORD, play AS WORD) SHARED STATIC
+DECLARE SUB sid_play(init AS WORD, play AS WORD, tune AS BYTE) SHARED STATIC
 
 DIM SHARED sid_debug AS BYTE
 sid_debug = 0
@@ -39,7 +39,7 @@ FUNCTION sid_load AS SidInfo(sid_start AS WORD, sid_end AS WORD) SHARED STATIC
     MEMCPY sid_start + $7e, sid_load.base, sid_load.length
 END FUNCTION
 
-SUB sid_play(init AS WORD, play AS WORD) SHARED STATIC
+SUB sid_play(init AS WORD, play AS WORD, tune AS BYTE) SHARED STATIC
     ASM
         lda {init}
         sta jsr_init + 1
@@ -71,6 +71,7 @@ SUB sid_play(init AS WORD, play AS WORD) SHARED STATIC
         sta $d012
 
         lda $dc0d       ; Acknowledge IRQ (to be sure)
+        lda {tune}
 jsr_init:
         jsr $dead       ; Initialize music
         cli
