@@ -41,6 +41,31 @@ END FUNCTION
 
 SUB sid_play(init AS WORD, play AS WORD, tune AS BYTE) SHARED STATIC
     ASM
+        ; Reset SID
+        lda #$ff
+resetSidLoop:    
+        ldx #$17
+reset_sid_0:
+        sta $d400,x
+        dex
+        bpl reset_sid_0
+        tax
+        bpl reset_sid_1
+        lda #$08
+        bpl resetSidLoop
+reset_sid_1:
+reset_sid_2:
+        bit $d011
+        bpl reset_sid_2
+reset_sid_3:
+        bit $d011
+        bmi reset_sid_3
+        eor #$08
+        beq resetSidLoop
+
+        lda #$0f
+        sta $d418
+
         lda {init}
         sta jsr_init + 1
         lda {init}+1
