@@ -1,11 +1,24 @@
+SHARED CONST NORTH = 0
+SHARED CONST EAST = 1
+SHARED CONST WEST = 2
+SHARED CONST SOUTH = 3
+
+SHARED CONST TRUE = $ff
+SHARED CONST FALSE = $00
+
 CONST MODE_MOVE = 0
 CONST MODE_BUILD = 1
 CONST MODE_IDLE = 2
+
+CONST MAX_TIME = 2500
+CONST GEM_TIME = 250
 
 GOTO START_OF_PROGRAM
 
 ORIGIN 4096
 START_OF_PROGRAM:
+
+DIM SHARED nsew(24) AS BYTE @nsew_data
 
 INCLUDE "lib_colors.bas"
 INCLUDE "lib_random.bas"
@@ -14,68 +27,16 @@ INCLUDE "lib_scr.bas"
 INCLUDE "lib_sid.bas"
 INCLUDE "tiles.bas"
 INCLUDE "maze.bas"
+INCLUDE "troll.bas"
 
-TYPE TypeTroll
-    x AS BYTE
-    y AS BYTE
-    xnext AS BYTE
-    ynext AS BYTE
-    last AS BYTE
-    floor AS BYTE
-    floor_color AS BYTE
-
-    SUB clear() STATIC
-        CHARAT THIS.x, THIS.y, THIS.floor, THIS.floor_color
-    END SUB
-
-    SUB move() STATIC
-        DIM dirs AS BYTE: dirs = nsew(random(0, 23))
-        DIM x AS BYTE: x = THIS.x
-        DIM y AS BYTE: y = THIS.y
-        DIM d AS BYTE
-
-        FOR i AS BYTE = 0 TO 3
-            DIM cdir AS BYTE: cdir = dirs AND %11
-            dirs = SHR(dirs, 2)
-            IF cdir = NORTH AND scr_charat(THIS.x, THIS.y - 1) < TILE_WALL THEN
-                x = THIS.x
-                y = THIS.y - 1
-                d = cdir
-                IF THIS.last <> SOUTH THEN EXIT FOR
-            END IF
-            IF cdir = SOUTH AND scr_charat(THIS.x, THIS.y + 1) < TILE_WALL THEN
-                x = THIS.x
-                y = THIS.y + 1
-                d = cdir
-                IF THIS.last <> NORTH THEN EXIT FOR
-            END IF
-            IF cdir = WEST AND scr_charat(THIS.x - 1, THIS.y) < TILE_WALL THEN
-                x = THIS.x - 1
-                y = THIS.y
-                d = cdir
-                IF THIS.last <> EAST THEN EXIT FOR
-            END IF
-            IF cdir = EAST AND scr_charat(THIS.x + 1, THIS.y) < TILE_WALL THEN
-                x = THIS.x + 1
-                y = THIS.y
-                d = cdir
-                IF THIS.last <> WEST THEN EXIT FOR
-            END IF
-        NEXT i
-
-        THIS.xnext = x
-        THIS.ynext = y
-        THIS.last = d
-    END SUB
-END TYPE
 DIM troll(10) AS TypeTroll
 
-TYPE TypePlayer
+TYPE TypePosition
     x AS BYTE
     y AS BYTE
 END TYPE
-DIM player AS TypePlayer
-DIM build AS TypePlayer
+DIM player AS TypePosition
+DIM build AS TypePosition
 
 DIM sid_info AS SidInfo
 sid_info = sid_load(@SID_START, @SID_END)
@@ -138,6 +99,9 @@ DIM TrollTime AS LONG
     TrollTime = 0
 DIM PlayerTime AS LONG
     PlayerTime = 0
+DIM EndTime AS LONG
+DIM ClockTicker AS LONG
+    ClockTicker = CLONG(MAX_TIME) / 25
 
 DIM Rounds AS WORD
     Rounds = 0
@@ -148,23 +112,26 @@ DIM Mode AS BYTE
 
 DIM ZP_W0 AS WORD
 
-'GOTO MOVE_PLAYER
-
+EndTime = TI() + 2500
 GAME_LOOP:
-    CurTime = TI()    
+    CurTime = TI()
+
+    IF (Curtime AND %0001111) = 0 THEN
+        DIM TimeLeft AS LONG
+            TimeLeft = EndTime - CurTime
+        IF TimeLeft < 0 THEN GOTO GAME_OVER_TIME
+        FOR t = 0 TO 24
+            IF TimeLeft > 0 THEN
+                CHARAT 39, 24-t, TILE_HOURGLASS, COLOR_BLUE
+            ELSE
+                CHARAT 39, 24-t, 32
+            END IF
+            TimeLeft = TimeLeft - ClockTicker
+        NEXT t
+    END IF
 
     IF Curtime > PlayerTime THEN
-        PlayerTime = CurTime + 20
-
-        Rounds = Rounds + 32
-        IF rounds > $1900 THEN GOTO GAME_OVER_TIME
-        FOR t = 0 TO 24
-            IF t < PEEK(@Rounds+1) THEN 
-                CHARAT 39, t, 32
-            ELSE
-                CHARAT 39, t, TILE_HOURGLASS, COLOR_BLUE
-            END IF
-        NEXT t
+        'PlayerTime = CurTime + 20
 
         IF scr_charat(build.x, build.y) = TILE_BUILDING THEN
             CHARAT build.x, build.y, TILE_PASSAGE
@@ -204,6 +171,7 @@ GAME_LOOP:
             IF (x = player.x) XOR (y = player.y) THEN
                 tile = scr_charat(x, y)
                 IF tile = TILE_WALL THEN
+                    PlayerTime = CurTime + 20
                     IF RNDB() < 40 THEN 
                         CHARAT x, y, TILE_PASSAGE
                         Mode = MODE_IDLE
@@ -214,6 +182,7 @@ GAME_LOOP:
                     END IF
                 END IF
                 IF tile = TILE_PASSAGE THEN
+                    PlayerTime = CurTime + 20
                     IF RNDB() < 40 THEN 
                         CHARAT x, y, TILE_WALL
                         Mode = MODE_IDLE
@@ -243,14 +212,10 @@ GAME_LOOP:
                     IF tile = TILE_TROLL THEN GOTO GAME_OVER_TROLL
                     IF tile = TILE_GEM THEN 
                         gems_left = gems_left - 1
-                        IF Rounds < $0180 THEN
-                            Rounds = 0
-                        ELSE
-                            Rounds = Rounds - $0180
-                        END IF
-
                         IF gems_left = 0 THEN GOTO YOU_WIN
+                        EndTime = EndTime + GEM_TIME
                     END IF
+                    PlayerTime = CurTime + 20
                 END IF
             END IF
         END IF
@@ -353,6 +318,14 @@ DATA AS BYTE $0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E
 DATA AS BYTE $0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E
 DATA AS BYTE $0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0F,$0F,$0F,$0F,$01,$0F,$0F,$01,$0F,$0F,$0F,$0F,$0F,$01,$01,$01,$01,$0E,$0E,$0E,$0E,$0E,$0E
 DATA AS BYTE $0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E,$0E
+
+nsew_data:
+DATA AS BYTE %11100100, %11100001, %11011000, %11010010
+DATA AS BYTE %11001001, %11000110, %10110100, %10110001
+DATA AS BYTE %10011100, %10010011, %10001101, %10000111
+DATA AS BYTE %01111000, %01110010, %01101100, %01100011
+DATA AS BYTE %01001110, %01001011, %00111001, %00110110
+DATA AS BYTE %00101101, %00100111, %00011110, %00011011
 
 
 SID_START:
